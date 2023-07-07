@@ -101,6 +101,77 @@ app.get("/assigned_students",async(req,res)=>{
     res.send(result);
 })
 
+//Assign students to mentor
+app.post("/assign_mentor",async(req,res)=>{
+    const data=req.body;
+
+    //Update mentors collection in DB
+    const result=await client
+    .db("mentor-student")
+    .collection("mentors")
+    .updateOne(
+        {mentor_name:data.mentor_name},
+        {$set:{students_assigned:data.students_assigned}}
+    )
+
+    data.students_assigned.map(async(student)=>{
+        //update the student collection with data 
+        await client
+        .db("mentor-student")
+        .collection("students")
+        .updateOne(
+          {student_name:student},
+          {$set:{mentor_assigned:true,mentor_name:data.mentor_name}}  
+        )
+    })
+    //res.
+    result.acknowledged
+    ?res.status(200).send({msg:"students assigned successfully!"})
+    :res.status(400).send({msg:"Something went worong..Please try again"})
+})
+
+//to add mentor
+//To update the mentor
+// Remove student from student_assigned with mentor=>Update mentor field of the student 
+// =>Add the student with new mentor 
+//change the mentor 
+app.post("/change_mentor",async(req,res)=>{
+    const data=req.body;
+
+    //remove the student from student_assigned array of previous mentor
+    await client 
+    .db("mentor-student")
+    .collection("mentors")
+    .updateOne(
+        {mentor_name:data.previous_mentor},
+        {$pull:{students_assigned:data.student_name}}
+    );
+    //update mentors name field of student
+    await client
+    .db("mentor-student")
+    .collection("students")
+    .updateOne(
+        {student_name:data.student_name},
+        {$set:{mentor_name:data.new_mentor}}
+    )
+
+    //add the student to new mentor ->mentor collection 
+    const result=await client
+    .db("mentor-student")
+    .collection("mentors")
+    .updateOne(
+        {mentor_name:data.new_mentor},
+        {$push:{students_assigned:data.student_name}}  //add student name to students_assigned 
+    );
+
+    result.acknowledged
+    ?res.status(200).send({msg:"Teacher Changed Successfully"})
+    :res.status(400).send({msg:"Something went wrong.."})
+
+})
+
+
+
 
 app.listen(PORT,()=>{
     console.log("Server Started on port " + PORT);
